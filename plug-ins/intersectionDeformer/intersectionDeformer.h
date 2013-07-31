@@ -1,0 +1,101 @@
+// * header
+// File:          intersectionDeformer.h
+
+#ifndef __INTYDEF__
+#define __INTYDEF__
+#include <maya/MPlug.h>
+#include <maya/MDataBlock.h>
+#include <maya/MPxDeformerNode.h>
+#include <maya/MGlobal.h>
+#include <maya/MFnMesh.h>
+#include <maya/MFnNurbsSurface.h>
+#include <maya/MPointArray.h>
+
+class intersectionDeformer: public MPxDeformerNode {
+public:
+    intersectionDeformer() {};
+
+    virtual ~intersectionDeformer() {};
+
+    static void    *creator();
+
+    static MStatus    initialize();
+
+    virtual MStatus deform(MDataBlock &data, MItGeometry &iter, const MMatrix &mat, unsigned int multiIndex);
+
+    static MTypeId id;
+    static MObject weight;                     //env overide
+    static MObject space;                      //world, local
+    static MObject lookDirection;              //normals, vector, from, to
+    static MObject lookVector;                 //vector for lookDirection
+    static MObject lookVectorX;
+    static MObject lookVectorY;
+    static MObject lookVectorZ;
+    static MObject lookMaxDist;                //float
+    static MObject center;                     //vector
+    static MObject centerX;
+    static MObject centerY;
+    static MObject centerZ;
+    static MObject pushDirection;              //normals, vector, from, to
+    static MObject pushRamp;                   //maya curve shape
+    static MObject pushAboveDist;              //float
+    static MObject pushAboveAmount;            //float
+    static MObject pushBelowDist;              //float
+    static MObject pushBelowAmount;            //float
+    static MObject thicknessDist;              //float
+    static MObject thicknessTol;               //float
+    static MObject intersectionMesh;           //mesh
+    static MMeshIsectAccelParams accelParams;  //crazy maya stuff
+};
+
+
+enum lookDir {
+    normalOut = 0,
+    normalIn,
+    vector,
+    fromPoint,
+    toPoint
+};
+
+inline MVector getMeshNormal(MFnMesh &mesh, int index, short space) {
+    MVector result;
+    if (space ==0)
+        mesh.getVertexNormal(index, result, MSpace::kWorld);
+    else 
+        mesh.getVertexNormal(index, result);
+    return result;
+}
+
+inline MVector getNurbsNormal(MFnNurbsSurface &surf, int index, short space) {
+    MVector result;
+
+    //this process sucks
+    double u,v;
+    MPointArray cvs;
+    surf.getCVs(cvs);
+    surf.getParamAtPoint( cvs[index], u, v, true);
+    if (space ==0)
+        result = surf.normal(u,v, MSpace::kWorld);
+    else 
+        result = surf.normal(u,v);
+
+    return result;
+}
+
+inline MPoint thickness(MPoint point, MVector normal, MVector ray, float dist, float thick, float tol) {
+    MPoint outPoint = point;
+
+    double d = (ray * normal);
+
+    if (d <= -tol) {
+        outPoint = point+(-ray*(thick*dist));
+	} else if (d < tol) {
+        double tolCurr(1 - (d+tol)/(tol*2));
+        outPoint = point+(-ray*(thick*dist*tolCurr));
+    }
+
+    return outPoint;
+}
+
+
+#endif

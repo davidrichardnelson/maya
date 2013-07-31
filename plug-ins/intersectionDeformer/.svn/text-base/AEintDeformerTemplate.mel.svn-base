@@ -1,0 +1,38 @@
+
+
+
+global proc AEintDeformerTemplate ( string $nodeName )
+{
+	
+	editorTemplate -beginScrollLayout;
+
+		AEaddRampControl ($nodeName+".pushRamp");
+		editorTemplate -addControl "envelope";
+		editorTemplate -addControl "weight";
+		editorTemplate -addControl "lookMaxDist";
+		//editorTemplate -addControl "space";
+		editorTemplate -addSeparator;
+		editorTemplate -addControl "lookDirection";
+		editorTemplate -addControl "lookVector";
+		editorTemplate -addSeparator;
+		editorTemplate -addControl "pushDirection";
+		editorTemplate -addControl "center";
+		editorTemplate -addSeparator;
+		editorTemplate -addControl "pushAboveDist";
+		editorTemplate -addControl "pushAboveAmount";
+		editorTemplate -addControl "pushBelowDist";
+		editorTemplate -addControl "pushBelowAmount";
+		editorTemplate -addControl "thicknessDist";
+		editorTemplate -addControl "thicknessTol";
+		editorTemplate -addSeparator;
+		editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}
+
+
+
+
+
+
+

@@ -1,0 +1,534 @@
+// ======================================================================
+// Copyright (C): FooMojo
+// File:          intersectionDeformer.cpp
+// Authors:       joseph
+// ======================================================================
+
+#include <maya/MMatrix.h>
+#include <maya/MPoint.h>
+#include <maya/MFloatPoint.h>
+#include <maya/MFloatPointArray.h>
+#include <maya/MVector.h>
+#include <maya/MVectorArray.h>
+#include <maya/MFloatVector.h>
+#include <maya/MItGeometry.h>
+#include <maya/MItMeshPolygon.h>
+#include <maya/MFnNumericAttribute.h>
+#include <maya/MFnEnumAttribute.h>
+#include <maya/MFnTypedAttribute.h>
+#include <maya/MRampAttribute.h>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+
+#include <math.h>
+
+#include <mayaFuntions.h>
+
+#include "intersectionDeformer.h"
+
+
+MTypeId intersectionDeformer::id( 0x8001e );
+MObject intersectionDeformer::weight; //env overide
+MObject intersectionDeformer::space; //world, local
+MObject intersectionDeformer::lookDirection;//normals, vector, from, to
+MObject intersectionDeformer::lookVector;//vector for lookDirection
+MObject intersectionDeformer::lookVectorX;
+MObject intersectionDeformer::lookVectorY;
+MObject intersectionDeformer::lookVectorZ;
+MObject intersectionDeformer::lookMaxDist; //float
+MObject intersectionDeformer::center; //vector
+MObject intersectionDeformer::centerX;
+MObject intersectionDeformer::centerY;
+MObject intersectionDeformer::centerZ;
+MObject intersectionDeformer::pushDirection;//normals, vector, from, to
+MObject intersectionDeformer::pushRamp; //maya curve shape
+MObject intersectionDeformer::pushAboveDist; //float
+MObject intersectionDeformer::pushAboveAmount; //float
+MObject intersectionDeformer::pushBelowDist; //float
+MObject intersectionDeformer::pushBelowAmount; //float
+MObject intersectionDeformer::thicknessDist; //float
+MObject intersectionDeformer::thicknessTol; //float
+MObject intersectionDeformer::intersectionMesh; //mesh
+MMeshIsectAccelParams intersectionDeformer::accelParams(MFnMesh::autoUniformGridParams());//crazy maya stuff
+
+
+
+void *intersectionDeformer::creator()
+{
+    return new intersectionDeformer;
+}
+
+
+MStatus intersectionDeformer::initialize()
+{
+    MStatus stat;
+
+    MFnNumericAttribute FnNumeric;
+    MFnTypedAttribute FnTyped;
+    MFnEnumAttribute FnEnum;
+    MRampAttribute RampAt;
+
+    //weight
+    weight = FnNumeric.create("weight", "we", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 1.0 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( weight );
+
+
+    //space
+    space = FnEnum.create("space", "sp", 0);
+    FnEnum.addField("world",0);
+    FnEnum.addField("object",1);
+    FnEnum.setStorable(true);
+    FnEnum.setKeyable(true);
+    addAttribute(space);
+
+
+    //lookDirection
+    lookDirection = FnEnum.create("lookDirection", "loo", 2);
+    FnEnum.addField("normalOut",0);
+    FnEnum.addField("normalIn",1);
+    FnEnum.addField("vector",2);
+    FnEnum.addField("fromPoint",3);
+    FnEnum.addField("toPoint",4);
+    FnEnum.setStorable(true);
+    FnEnum.setKeyable(true);
+    addAttribute(lookDirection);
+
+    
+    //lookMaxDist
+    lookMaxDist = FnNumeric.create("lookMaxDist", "lod", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 5000.0 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( lookMaxDist );
+
+
+    //lookVector
+    lookVectorX = FnNumeric.create( "lookVectorX", "lox", MFnNumericData::kDouble );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    lookVectorY = FnNumeric.create( "lookVectorY", "loy", MFnNumericData::kDouble );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    lookVectorZ = FnNumeric.create( "lookVectorZ", "loz", MFnNumericData::kDouble );
+     FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    lookVector = FnNumeric.create( "lookVector", "lov", lookVectorX, lookVectorY, lookVectorZ );
+    FnNumeric.setDefault( 0.0, -1.0, 0.0 );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    addAttribute(lookVector);
+
+    //Center
+    centerX = FnNumeric.create( "centerX", "cx", MFnNumericData::kDouble );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    centerY = FnNumeric.create( "centerY", "cy", MFnNumericData::kDouble );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    centerZ = FnNumeric.create( "centerZ", "cz", MFnNumericData::kDouble );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    center = FnNumeric.create( "center", "c", centerX, centerY, centerZ );
+    FnNumeric.setDefault( 0.0, 5.0, 0.0 );
+    FnNumeric.setStorable(true);
+    FnNumeric.setKeyable(true);
+    addAttribute(center);
+
+
+    //pushDirection
+    pushDirection = FnEnum.create("pushDirection", "pud", 0);
+    FnEnum.addField("normalOut",0);
+    FnEnum.addField("normalIn",1);
+    FnEnum.addField("vector",2);
+    FnEnum.addField("fromCenter",3);
+    FnEnum.addField("toCenter",4);
+    FnEnum.setStorable(true);
+    FnEnum.setKeyable(true);
+    addAttribute(pushDirection);
+
+
+    //pushRamp
+    MString longName = "pushRamp";
+    MString shortName = "pur";
+    pushRamp = RampAt.createCurveRamp(longName, shortName);
+    addAttribute(pushRamp);
+
+    //pushAboveDist
+    pushAboveDist = FnNumeric.create("pushAboveDist", "pad", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 0.5 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( pushAboveDist );
+
+    //pushAboveAmount
+    pushAboveAmount = FnNumeric.create("pushAboveAmount", "paa", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 0.5 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( pushAboveAmount );
+
+    //pushBelowDist
+    pushBelowDist = FnNumeric.create("pushBelowDist", "pbd", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 1.0 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    FnNumeric.setMin( 0.001f );
+    addAttribute( pushBelowDist );
+
+    //pushBelowAmount
+    pushBelowAmount = FnNumeric.create("pushBelowAmount", "pba", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 0.5 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( pushBelowAmount );
+
+    //thicknessDist
+    thicknessDist = FnNumeric.create("thicknessDist", "thd", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 0.3 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( thicknessDist );
+
+    //thicknessTol
+    thicknessTol = FnNumeric.create("thicknessTol", "tht", MFnNumericData::kFloat);
+    FnNumeric.setDefault( 0.8 );
+    FnNumeric.setKeyable(true);
+    FnNumeric.setStorable(true);
+    FnNumeric.setReadable(true);
+    FnNumeric.setWritable(true);
+    addAttribute( thicknessTol );
+
+
+    //intersectionMesh
+    intersectionMesh = FnTyped.create("intersectionMesh", "inm", MFnData::kMesh);
+    FnTyped.setArray( false );
+    FnTyped.setReadable(true);
+    FnTyped.setWritable(true);
+    addAttribute( intersectionMesh );
+
+
+    attributeAffects(intersectionMesh, outputGeom);
+    attributeAffects(thicknessTol, outputGeom);
+    attributeAffects(thicknessDist, outputGeom);
+    attributeAffects(pushBelowAmount, outputGeom);
+    attributeAffects(pushBelowDist, outputGeom);
+    attributeAffects(pushAboveAmount, outputGeom);
+    attributeAffects(pushAboveDist, outputGeom);
+    attributeAffects(pushRamp, outputGeom);
+    attributeAffects(pushDirection, outputGeom);
+    attributeAffects(center, outputGeom);
+    attributeAffects(lookMaxDist, outputGeom);
+    attributeAffects(lookVector, outputGeom);
+    attributeAffects(lookDirection, outputGeom);
+    attributeAffects(space, outputGeom);
+    attributeAffects(weight, outputGeom);
+
+    return stat;
+}
+
+
+
+MStatus intersectionDeformer::deform(MDataBlock &data, MItGeometry &iter, const MMatrix &mat, unsigned int multiIndex)
+{
+    MStatus stat;
+
+    //lets see if we need to do anything
+    MDataHandle DataHandle = data.inputValue(envelope, &stat);
+    float env = DataHandle.asFloat();
+    if (env == 0)
+        return stat;
+    DataHandle = data.inputValue(weight, &stat);
+    const float weight = DataHandle.asFloat();
+    if (weight == 0)
+        return stat;
+    env = (env*weight);
+
+    ///////////get user data
+    short Space = data.inputValue(space, &stat).asShort();
+    short LookDirection = data.inputValue(lookDirection, &stat).asShort();
+    MVector LookVector = data.inputValue(lookVector, &stat).asDouble3();
+    float LookMaxDist = data.inputValue(lookMaxDist, &stat).asFloat();
+    MVector PushCenter = data.inputValue(center, &stat).asDouble3();
+    short PushDirection = data.inputValue(pushDirection, &stat).asShort();
+    float PushAboveDist = data.inputValue(pushAboveDist, &stat).asFloat();
+    float PushAboveAmount = data.inputValue(pushAboveAmount, &stat).asFloat();
+    float PushBelowDist = data.inputValue(pushBelowDist, &stat).asFloat();
+    float PushBelowAmount = data.inputValue(pushBelowAmount, &stat).asFloat();
+    float ThicknessDist = data.inputValue(thicknessDist, &stat).asFloat();
+    float ThicknessTol = data.inputValue(thicknessTol, &stat).asFloat();
+
+    //intersectionMesh
+    MFnMesh    IntMesh;
+    DataHandle = data.inputValue(intersectionMesh, &stat);
+    if (!stat)
+        return Err(stat,"Can't get mesh to snap to");
+    MObject IntMeshObj = DataHandle.asMesh();
+    IntMesh.setObject(IntMeshObj);
+    //MItMeshPolygon IntMeshIt(IntMeshObj);
+
+    //maya curve shape
+    MObject thisNode = this->thisMObject();
+    MFnDependencyNode fieldNode(thisNode);
+    MPlug PushRampPlug = fieldNode.findPlug("pushRamp", &stat);
+    MRampAttribute PushRamp(PushRampPlug, &stat);
+
+
+    //get source object if needed for normal data
+    MFnMesh sourceMesh;
+    MFnNurbsSurface sourceNurbs;
+    bool inMesh=true;
+    if (LookDirection < 3 || PushDirection < 3 || ThicknessDist !=0)
+    {   
+        MArrayDataHandle InputArrayData = data.inputValue(input, &stat);
+        if (!stat)
+            return Err(stat,"Can't get source for normal direction/thickness");
+        stat = InputArrayData.jumpToElement(multiIndex);
+        if (!stat)
+            return Err(stat,"Can't get source for normal direction/thickness");
+        MDataHandle InputData = InputArrayData.inputValue();
+        MDataHandle InputGeom = InputData.child(inputGeom);
+        //check for mesh
+        MObject tempObj = InputGeom.asMesh();
+        stat = sourceMesh.setObject(tempObj);
+        if (!stat)
+        {   
+            tempObj = InputGeom.asNurbsSurface();
+            stat = sourceNurbs.setObject(tempObj);
+            if (!stat)
+                return Err(stat,"Can't get source for normal direction/thickness");
+            else
+                inMesh = false;
+        }
+    }
+
+
+    //intersection vars
+    MVector intersectionVec;
+    MFloatVector intersectionVecF;
+    MPoint startPointWS, startPointLS;
+    MFloatPoint startPointWSF;
+    MIntArray* nullIntArray = NULL;
+    MFloatArray* nullArray = NULL;
+    MFloatPointArray hitPoints;
+    MFloatArray hitRayParams;
+
+
+    /////////////////go
+    iter.reset();
+    for ( ; !iter.isDone(); iter.next())
+    {
+        //check for painted weights
+        float currEnv = env * weightValue(data, multiIndex, iter.index());  
+
+        if (currEnv !=0)
+        {
+            //get normal if needed
+            MVector normalVec;
+            if (LookDirection < 3 || PushDirection < 3 || ThicknessDist != 0)
+            {
+                if (inMesh)
+                    normalVec = getMeshNormal(sourceMesh, iter.index(), Space);
+                else 
+                    normalVec = getNurbsNormal(sourceNurbs, iter.index(), Space);
+            }
+
+
+            //get look direction
+            MVector intersectionVec;
+            switch (LookDirection)
+            {
+                case normalIn:
+                    intersectionVec = -normalVec;
+                    break;
+                case normalOut:
+                    intersectionVec = normalVec;
+                    break;
+                case vector:
+                    intersectionVec = LookVector;
+                    break;
+                case fromPoint:
+                    intersectionVec = MVector(startPointWS - LookVector);
+                    break;
+                case toPoint:
+                    intersectionVec = MVector(LookVector - startPointWS);
+                    break;
+            }
+            intersectionVec.normalize();
+
+            
+            //get start point
+            startPointLS = iter.position();
+            startPointWS = iter.position()*mat;
+
+            //convert doubles to float for maya intersection call
+            intersectionVecF = MFloatVector(intersectionVec);
+            startPointWSF = MFloatPoint(startPointWS.x, startPointWS.y, startPointWS.z, startPointWS.w);
+
+            //maya intersection check
+            bool hit = IntMesh.allIntersections(startPointWSF, intersectionVecF, nullIntArray, nullIntArray,
+                        true, MSpace::kWorld, LookMaxDist, true, &accelParams, true, hitPoints,
+                        &hitRayParams, nullIntArray, nullIntArray, nullArray, nullArray, 0.01f);
+
+            //if an intersection was found
+            if (hit)
+            {
+                //MGlobal::displayInfo("found intersection");
+                float distToHit = hitRayParams[0];
+                MFloatPoint pointHit = hitPoints[0];
+
+                //if we hit or are within Tolerences
+                float maxLook = max(0.0f, PushAboveDist);
+                maxLook = max(maxLook, ThicknessDist);
+                if (distToHit < maxLook)
+                {
+                    //get push direction
+                    MVector pushVec;
+                    switch (PushDirection)
+                    {
+                        case normalIn:
+                            pushVec = -normalVec; 
+                            break;
+                        case normalOut:
+                            pushVec = normalVec;
+                            break;
+                        case vector:
+                            pushVec = PushCenter;
+                            break;
+                        case fromPoint:
+                            pushVec = MVector(pointHit - PushCenter);
+                            break;
+                        case toPoint:
+                            pushVec = MVector(PushCenter - pointHit);
+                            break;
+                    }
+                    pushVec.normalize();
+                    
+
+                    //if we have intersected (below)
+                    if (distToHit < 0.0f)
+                    {
+                        float distToHitCurr = min(-distToHit, PushBelowDist);
+                        float PushBelowDistCurr;
+
+                        //calc push amount
+                        if (PushRamp.getNumEntries() >1)
+                        {
+                            float rampPostion = ((distToHitCurr/PushBelowDist)*0.5f) + 0.5f;
+                            float rampValue;
+                            PushRamp.getValueAtPosition(rampPostion, rampValue, &stat);
+                            PushBelowDistCurr = rampValue;
+                        }
+                        else
+                            PushBelowDistCurr = (distToHitCurr/PushBelowDist);
+
+                        //calc the new point postion and run second intersection
+                        startPointWSF += (PushBelowDistCurr*PushBelowAmount)* pushVec ;
+                        hit = IntMesh.allIntersections(startPointWSF, intersectionVecF, nullIntArray, nullIntArray,
+                                     true, MSpace::kWorld, LookMaxDist, true, &accelParams, true, hitPoints,
+                                     &hitRayParams, nullIntArray, nullIntArray, nullArray, nullArray, 0.01f);
+
+
+                        if (hit)
+                        {
+                            MPoint outPoint(hitPoints[0]);
+
+                            //if thickness is on
+                            if (ThicknessDist !=0)
+                                outPoint = thickness(outPoint, normalVec, intersectionVecF, 1.0f, ThicknessDist, ThicknessTol);
+
+                            //calc out point
+                            outPoint = (outPoint * mat.inverse());
+                            outPoint = (outPoint*currEnv) + (startPointLS *(1-currEnv));
+                            iter.setPosition(outPoint);
+                        }
+                    }
+                    //PushAboveDist stuff here
+                    else if (distToHit < PushAboveDist)
+                    {
+                        float distToHitCurr = min(distToHit, PushAboveDist);
+                        float PushAboveDistCurr;
+
+                        //calc push amount
+                        if (PushRamp.getNumEntries() >1)
+                        {
+                            float rampPostion = (1-(distToHitCurr/PushAboveDist))/2;
+                            float rampValue;
+                            PushRamp.getValueAtPosition(rampPostion, rampValue, &stat);
+                            PushAboveDistCurr = rampValue;
+                        }
+                        else
+                            PushAboveDistCurr =  1 -(distToHitCurr/PushAboveDist);
+
+                        //calc the new point postion and run second intersection
+                        startPointWSF += (PushAboveDistCurr*PushAboveAmount)* pushVec ;
+                        hit = IntMesh.allIntersections(startPointWSF, intersectionVecF, nullIntArray, nullIntArray,
+                                     true, MSpace::kWorld, LookMaxDist, true, &accelParams, true, hitPoints,
+                                     &hitRayParams, nullIntArray, nullIntArray, nullArray, nullArray, 0.01f);
+
+ 
+                        if (hit)
+                        {
+                            MPoint outPoint(hitPoints[0]);
+                            
+                            
+                            //if thickness is on
+                            outPoint -= intersectionVecF*distToHit;
+                            if (ThicknessDist !=0 && distToHit < ThicknessDist)
+                            {
+                                float aboveDist = 1- (distToHit/ThicknessDist);
+                                outPoint = thickness(outPoint, normalVec, intersectionVecF, aboveDist, ThicknessDist, ThicknessTol);
+                            }
+
+                            //calc out point
+                            //outPoint -= intersectionVecF*distToHit;
+                            outPoint = (outPoint * mat.inverse());
+                            outPoint = (outPoint*currEnv) + (startPointLS *(1-currEnv));
+                            iter.setPosition(outPoint);
+                        }                      
+
+                    }
+
+
+
+                    //if hit is within thickness dist
+                    else if (distToHit < ThicknessDist)
+                    {
+                        float dist = ThicknessDist - distToHit;///ThicknessDist;
+                        float falloff = ThicknessDist/distToHit;///ThicknessDist;
+                        MPoint outPoint = thickness(startPointWS, normalVec, intersectionVecF, 1.0f, dist, ThicknessTol);
+                        
+                        //calc out point
+                        outPoint = (outPoint * mat.inverse());
+                        outPoint = (outPoint*currEnv) + (startPointLS *(1-currEnv));
+                        iter.setPosition(outPoint);
+                    }
+                }
+            }
+        }
+    }
+
+    return stat;
+}
+
+// ======================================================================
+// EOF
+// ======================================================================

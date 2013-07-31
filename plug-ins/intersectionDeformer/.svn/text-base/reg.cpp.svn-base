@@ -1,0 +1,44 @@
+// ======================================================================
+// Copyright (C): FooMojo
+// File:          reg.cpp
+// Authors:       joseph
+// ======================================================================
+
+///register the node with maya
+
+//#include <maya/MIOStream.h>
+#include <maya/MFnPlugin.h>
+#include "intersectionDeformer.h"
+
+MStatus initializePlugin( MObject obj )
+{
+    MString vendorStr( "FooMojo: " );
+    vendorStr += __DATE__;
+    vendorStr += " @ ";
+    vendorStr += __TIME__;
+    vendorStr += " (authors: joseph)";
+
+    MFnPlugin plugin( obj, vendorStr.asChar(), "beta", "Any");
+    MStatus result;
+    result = plugin.registerNode( "intDeformer", intersectionDeformer::id, intersectionDeformer::creator, 
+                                  intersectionDeformer::initialize, MPxNode::kDeformerNode );
+
+    MGlobal:: displayInfo("==================================================================");
+    MGlobal:: displayInfo("intersectionDeformer plugin loaded (see script editor for details).");
+    MGlobal:: displayInfo( vendorStr.asChar() );
+    MGlobal:: displayInfo("==================================================================");
+   
+    return result;
+}
+
+MStatus uninitializePlugin( MObject obj)
+{
+    MStatus result;
+    MFnPlugin plugin( obj );
+    result = plugin.deregisterNode( intersectionDeformer::id );
+    return result;
+}
+
+// ======================================================================
+// EOF
+// ======================================================================
