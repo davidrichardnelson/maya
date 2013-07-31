@@ -1,8 +1,6 @@
 //register the node with maya
 
-//#include <maya/MIOStream.h>
 #include <maya/MFnPlugin.h>
-
 #include "snapMeshDeformer.h"
 #include "snapMeshCmd.h"
 

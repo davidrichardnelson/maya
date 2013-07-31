@@ -3,7 +3,6 @@
 
 ///register the node with maya
 
-//#include <maya/MIOStream.h>
 #include <maya/MFnPlugin.h>
 #include "intersectionDeformer.h"
 
