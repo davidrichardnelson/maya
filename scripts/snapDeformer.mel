@@ -1,0 +1,204 @@
+/*
+snapDeformer.mel
+dbehrens
+
+Use this tool to create and connect surfaces using the snapDeformer.
+For snapping points to points of surfaces. Much like a wrap deformer, but
+it is fast and less buggy.
+*/
+
+global proc ui_snapDeformer() {
+    string $win = "snapDeformer";
+    int $w = 205;
+    int $h = 250;
+
+    if (`about -linux`) $h = ($h-13);
+    if (`about -mac`) $h = ($h+17);
+    if (`window -ex $win`) deleteUI $win;
+    $win = `window -rtf 0 -title $win -iconName $win -s 1 $win`;
+
+    makePaintable -shapeMode "deformer" -attrType "multiFloat" "snapMeshDeformer" "weights";
+
+    snap_tryPlugin("snapDeformer");
+
+    menuBarLayout;
+    menu -l "File" -en 1;
+    string $exit = `menuItem -l "Exit" -c ("deleteUI " + $win)`;
+
+    //main layout
+    string $mainLayout = `formLayout -numberOfDivisions 200`;
+
+    //first chunk inside main layout
+    string $c = `columnLayout -adj 1 -w 210`;
+
+        string $src = `button -p $c -h 22 -l "Source" -ann "Select the \"Driver\" geometry transforms" -c ("snapVariables 0")`;
+        string $dest = `button -p $c -h 22 -l "Destination" -ann "Select the \"Driven\" geometry transforms" -c ("snapVariables 1")`;
+        string $threshold = `floatField -p $c -min 0.0 -max 10.0 -v 0.010 -w $w`;
+        string $connect = `button -p $c -h 30 -w $w -l "Connect" -ann "snapDeformer: Use \"Dest surfs\" button and \"Source\" surfs buttons to run with tolerance." -c ("snapDeformerUI "+$threshold)`;
+        string $all = `button -p $c -h 22 -w $w -l "Delete All Snaps" -ann "This will search the scene and delete ALL snapDeformer(s)" -c ("deleteAllSnaps")`;
+        string $zero = `button -p $c -h 22 -w $w -l "Zero Points" -ann "Zero out selected point from their snapDeformers" -c ("zeroSnappedPoints `ls -sl`;repeatLast -e -ac \"zeroSnappedPoints `ls -sl`\";")`;
+
+    setParent $mainLayout;
+
+    string $close = `button -l "Close" -h 40 -w $w -c ("deleteUI "+$win+";")`;
+
+    formLayout -e -af $c "top" 0 -af $c "left" 0 -af $c "right" 0
+              -ac $c "bottom" 0 $close -an $close "top" -af $close "left" 0
+              -af $close "right" 0 -af $close "bottom" 0 $mainLayout;
+
+    showWindow $win;
+    window -e -w $w -h $h $win;
+
+}
+
+global proc deleteAllSnaps() {
+    string $type = "snapMeshDeformer";
+
+    string $msg = "Delete all deformers of type "+$type+" in your scene?";
+    string $confirm = `confirmDialog -title $msg -message $msg -b "Yes" -b "No" -db "Yes" -cb "No" -ds "No"`;
+
+    if ($confirm == "Yes") {
+        string $snaps[] = `ls -typ $type`;
+        if (size($snaps)>0) {
+            string $snapstring = `snap_stringArrayToString $snaps`;
+            evalEcho ("delete "+$snapstring);
+        }
+    }
+}
+
+global proc string[] snapVariables(int $srcDest) {
+    global string $fmSnapSourceMeshes[];
+    global string $fmSnapDestinationMeshes[];
+
+    string $type = "snapMeshDeformer";
+
+    string $geom[];clear($geom);
+    if ($srcDest==0) clear($fmSnapSourceMeshes);
+    else if ($srcDest==1) clear($fmSnapDestinationMeshes);
+    string $sel[] = `ls -sl`;
+    for ($n in $sel) {
+        string $shapes[] = `listRelatives -s -pa -ni -f $n`;
+        for ($i=0;$i<size($shapes);$i++) {
+            if (`objectType -i "nurbsCurve" $shapes[$i]`) error  ("nurbsCurves not supported with deformer type snapMeshDeformer");
+            if (`objectType -i "nurbsSurface" $shapes[$i]`) error  ("nurbsSurface not supported with deformer type snapMeshDeformer");
+
+            if (`objectType -i "mesh" $shapes[$i]` || `objectType -i "nurbsSurface" $shapes[$i]` || `objectType -i "nurbsCurve" $shapes[$i]` ) {
+                if (!$srcDest) $fmSnapSourceMeshes[size($fmSnapSourceMeshes)] = $shapes[$i];
+                else if ($srcDest) $fmSnapDestinationMeshes[size($fmSnapDestinationMeshes)] = $shapes[$i];
+            }
+        }
+        if (!$srcDest) $geom = $fmSnapSourceMeshes;
+        else if ($srcDest)  $geom = $fmSnapDestinationMeshes;
+    }
+    return $geom;
+}
+
+global proc snapDeformerUI(string $threshold) {
+    global string $fmSnapSourceMeshes[];
+    global string $fmSnapDestinationMeshes[];
+
+    float $currentTime = `currentTime -q`;
+    float $start = `timerX`;
+    float $tolerance = `floatField -q -v $threshold`;
+    snapDeformer $fmSnapSourceMeshes $fmSnapDestinationMeshes $tolerance;
+
+    float $elapsed = `timerX -st $start`;
+    int $min = ($elapsed/60);
+    print ("// Result: ran snapDeformer in "+$min+" minutes ("+$elapsed+" seconds) (see script editor for details).\n");
+}
+
+global proc string[] snapDeformer(string $src[], string $dest[], float $tol) {
+    string $snaps[];clear($snaps);
+    string $tmp[];clear($tmp);
+    int $numD = 0;
+    int $numI = 0;
+    string $parent = "";
+    $src = `intersectStringArrays $src $src`;
+    $dest = `intersectStringArrays $dest $dest`;
+    for ($s=0;$s<size($src);$s++) {
+        for ($d=0;$d<size($dest);$d++) {
+            if (!`isShapeIntermediate $dest[$d]`) {
+                $parent = `getParent $dest[$d]`;
+                string $bits[] = `getNameBits $parent`;
+                $numD = $d+1;
+                $tmp = evalEcho ("snapMeshCmd -s "+$src[$s]+" -t "+$dest[$d]+" -max "+$tol);
+                for ($i=0;$i<size($tmp);$i++) {
+                    $numI = $i+1;
+                    $tmp[$i] = `rename $tmp[$i] ($bits[4]+$bits[5]+$numD+"MeshSnap_"+$numI)`;
+                }
+                $snaps = `snap_appendStringArray $snaps $tmp`;
+            }
+        }
+    }
+    string $sources = `snap_stringArrayToString $src`;
+    string $targets = `snap_stringArrayToString $dest`;
+    $snaps = `intersectStringArrays $snaps $snaps`;
+    if (size($snaps)>0) {
+        makePaintable -shapeMode "deformer" -attrType "multiFloat" "snapMeshDeformer" "weights";
+        print ("Created the following snapMeshDeformers:\n");
+        print $snaps;
+    }
+    print ("// Result: created snapDeformer(s) for "+$targets+" from "+$sources+" (see script editor for details).\n");
+    return $snaps;
+}
+
+global proc int zeroSnappedPoints(string $pts[]) {
+    $pts = `filterExpand -fp 1 -ex 1 -sm 28 -sm 31 -sm 36 -sm 46 $pts`;
+    string $meshes[] = `ls -r 1 -o $pts`;
+    $meshes = `intersectStringArrays $meshes $meshes`;
+    string $hist[] = `getDeformersOfType $meshes[0] "snapMeshDeformer"`;
+    $history = `listHistory -gl 1 -pdo 1 $meshes`;
+    string $snaps[] = `ls -typ "snapMeshDeformer" $history`;
+    if (size($snaps)>0) {
+        for ($p=0;$p<size($pts);$p++) {
+            string $num = getComponentIndex($pts[$p]);
+            for ($s in $snaps) {
+                setAttr ($s+".pointList["+$num+"]") -1;
+            }
+        }
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+global proc string rig_stringArrayToString(string $array[]) {
+    string $string = "";
+    int $size = size($array);
+
+    if (!$size) {
+        warning ("empty array.");
+        return "{\"\"}";
+    } else if ($size == 1) {
+        $string = ("{\""+$array[0]+"\"}");
+    } else {
+        $string = "{";
+        for ($i=0;$i<size($array)-1;$i++) {
+            $string += ("\""+$array[$i]+"\",");
+        }
+        $string += ("\""+$array[size($array)-1]+"\"}");
+    }
+    return $string;
+}
+
+global proc string[] snap_appendStringArray (string $copyTo[],string $copyFrom[]) {
+
+    int $j = size($copyTo);
+    for($i=0;$i<size($copyFrom);$i++,$j++) $copyTo[$j] = $copyFrom[$i];
+    return $copyTo;
+}
+
+global proc int snap_tryPlugin(string $plugin){
+
+    if (!`pluginInfo -q -l $plugin`) {
+        int $load = catchQuiet(evalEcho("loadPlugin "+$plugin));
+    }
+    if (!`pluginInfo -q -l $plugin`){
+        warning("plugin: " + $plugin + " could not be loaded.");
+        return 0;
+    }
+    return 1;
+
+}
+
+// EOF
