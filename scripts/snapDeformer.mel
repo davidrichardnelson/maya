@@ -67,14 +67,14 @@ global proc deleteAllSnaps() {
 }
 
 global proc string[] snapVariables(int $srcDest) {
-    global string $fmSnapSourceMeshes[];
-    global string $fmSnapDestinationMeshes[];
+    global string $snapSnapSourceMeshes[];
+    global string $snapSnapDestinationMeshes[];
 
     string $type = "snapMeshDeformer";
 
     string $geom[];clear($geom);
-    if ($srcDest==0) clear($fmSnapSourceMeshes);
-    else if ($srcDest==1) clear($fmSnapDestinationMeshes);
+    if ($srcDest==0) clear($snapSnapSourceMeshes);
+    else if ($srcDest==1) clear($snapSnapDestinationMeshes);
     string $sel[] = `ls -sl`;
     for ($n in $sel) {
         string $shapes[] = `listRelatives -s -pa -ni -f $n`;
@@ -83,24 +83,24 @@ global proc string[] snapVariables(int $srcDest) {
             if (`objectType -i "nurbsSurface" $shapes[$i]`) error  ("nurbsSurface not supported with deformer type snapMeshDeformer");
 
             if (`objectType -i "mesh" $shapes[$i]` || `objectType -i "nurbsSurface" $shapes[$i]` || `objectType -i "nurbsCurve" $shapes[$i]` ) {
-                if (!$srcDest) $fmSnapSourceMeshes[size($fmSnapSourceMeshes)] = $shapes[$i];
-                else if ($srcDest) $fmSnapDestinationMeshes[size($fmSnapDestinationMeshes)] = $shapes[$i];
+                if (!$srcDest) $snapSnapSourceMeshes[size($snapSnapSourceMeshes)] = $shapes[$i];
+                else if ($srcDest) $snapSnapDestinationMeshes[size($snapSnapDestinationMeshes)] = $shapes[$i];
             }
         }
-        if (!$srcDest) $geom = $fmSnapSourceMeshes;
-        else if ($srcDest)  $geom = $fmSnapDestinationMeshes;
+        if (!$srcDest) $geom = $snapSnapSourceMeshes;
+        else if ($srcDest)  $geom = $snapSnapDestinationMeshes;
     }
     return $geom;
 }
 
 global proc snapDeformerUI(string $threshold) {
-    global string $fmSnapSourceMeshes[];
-    global string $fmSnapDestinationMeshes[];
+    global string $snapSnapSourceMeshes[];
+    global string $snapSnapDestinationMeshes[];
 
     float $currentTime = `currentTime -q`;
     float $start = `timerX`;
     float $tolerance = `floatField -q -v $threshold`;
-    snapDeformer $fmSnapSourceMeshes $fmSnapDestinationMeshes $tolerance;
+    snapDeformer $snapSnapSourceMeshes $snapSnapDestinationMeshes $tolerance;
 
     float $elapsed = `timerX -st $start`;
     int $min = ($elapsed/60);
@@ -113,18 +113,18 @@ global proc string[] snapDeformer(string $src[], string $dest[], float $tol) {
     int $numD = 0;
     int $numI = 0;
     string $parent = "";
-    $src = `intersectStringArrays $src $src`;
-    $dest = `intersectStringArrays $dest $dest`;
+    $src = `snap_intersectStringArrays $src $src`;
+    $dest = `snap_intersectStringArrays $dest $dest`;
     for ($s=0;$s<size($src);$s++) {
         for ($d=0;$d<size($dest);$d++) {
             if (!`isShapeIntermediate $dest[$d]`) {
-                $parent = `getParent $dest[$d]`;
-                string $bits[] = `getNameBits $parent`;
+                string $parents[] = `listRelatives -p $dest[$d]`;
+                $parent = `match "[^|]*$" $parents[0]`;
                 $numD = $d+1;
                 $tmp = evalEcho ("snapMeshCmd -s "+$src[$s]+" -t "+$dest[$d]+" -max "+$tol);
                 for ($i=0;$i<size($tmp);$i++) {
                     $numI = $i+1;
-                    $tmp[$i] = `rename $tmp[$i] ($bits[4]+$bits[5]+$numD+"MeshSnap_"+$numI)`;
+                    $tmp[$i] = `rename $tmp[$i] ($parent+$numD+"MeshSnap_"+$numI)`;
                 }
                 $snaps = `snap_appendStringArray $snaps $tmp`;
             }
@@ -132,7 +132,7 @@ global proc string[] snapDeformer(string $src[], string $dest[], float $tol) {
     }
     string $sources = `snap_stringArrayToString $src`;
     string $targets = `snap_stringArrayToString $dest`;
-    $snaps = `intersectStringArrays $snaps $snaps`;
+    $snaps = `snap_intersectStringArrays $snaps $snaps`;
     if (size($snaps)>0) {
         makePaintable -shapeMode "deformer" -attrType "multiFloat" "snapMeshDeformer" "weights";
         print ("Created the following snapMeshDeformers:\n");
@@ -145,7 +145,7 @@ global proc string[] snapDeformer(string $src[], string $dest[], float $tol) {
 global proc int zeroSnappedPoints(string $pts[]) {
     $pts = `filterExpand -fp 1 -ex 1 -sm 28 -sm 31 -sm 36 -sm 46 $pts`;
     string $meshes[] = `ls -r 1 -o $pts`;
-    $meshes = `intersectStringArrays $meshes $meshes`;
+    $meshes = `snap_intersectStringArrays $meshes $meshes`;
     string $hist[] = `getDeformersOfType $meshes[0] "snapMeshDeformer"`;
     $history = `listHistory -gl 1 -pdo 1 $meshes`;
     string $snaps[] = `ls -typ "snapMeshDeformer" $history`;
@@ -162,7 +162,7 @@ global proc int zeroSnappedPoints(string $pts[]) {
     }
 }
 
-global proc string rig_stringArrayToString(string $array[]) {
+global proc string snap_stringArrayToString(string $array[]) {
     string $string = "";
     int $size = size($array);
 
@@ -199,6 +199,42 @@ global proc int snap_tryPlugin(string $plugin){
     }
     return 1;
 
+}
+
+global proc string[] snap_intersectStringArrays(string $a[], string $b[]){
+
+    if (!`about -batch`){
+        string $myIntersector = `stringArrayIntersector`;
+        stringArrayIntersector -edit -intersect $a $myIntersector;
+        stringArrayIntersector -edit -intersect $b $myIntersector;
+        string $intersect[] = `stringArrayIntersector -query $myIntersector`;
+        stringArrayIntersector -edit -reset $myIntersector;
+        deleteUI $myIntersector;
+        return $intersect;
+    } else {
+        return `rig_batchIntersectArrays $a $b`;
+    }
+}
+
+global proc int isShapeIntermediate(string $node) {
+    int $is = 2;
+    int $typ = 0;
+    if (`objExists $node`) {
+        string $types[] = {"nurbsCurve","nurbsSurface","mesh","lattice","subdiv"};
+        for ($t in $types) {
+            if (`objectType -i $t $node`) $typ=1;
+        }
+        if ($typ==1) {
+            $is=1;
+            string $type = `nodeType $node`;
+            string $parents[] = `listRelatives -p $node`;
+            string $allshapes[] = `listRelatives -f -pa -s -ni $parents`;
+            for ($i=0;$i<size($allshapes);$i++) {
+                if ($node==$allshapes[$i]) $is=0;
+            }
+        }
+    }
+    return $is;
 }
 
 // EOF
