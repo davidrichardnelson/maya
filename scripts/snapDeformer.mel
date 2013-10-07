@@ -36,7 +36,6 @@ global proc ui_snapDeformer() {
         string $threshold = `floatField -p $c -min 0.0 -max 10.0 -v 0.010 -w $w`;
         string $connect = `button -p $c -h 30 -w $w -l "Connect" -ann "snapDeformer: Use \"Dest surfs\" button and \"Source\" surfs buttons to run with tolerance." -c ("snapDeformerUI "+$threshold)`;
         string $all = `button -p $c -h 22 -w $w -l "Delete All Snaps" -ann "This will search the scene and delete ALL snapDeformer(s)" -c ("deleteAllSnaps")`;
-        string $zero = `button -p $c -h 22 -w $w -l "Zero Points" -ann "Zero out selected point from their snapDeformers" -c ("zeroSnappedPoints `ls -sl`;repeatLast -e -ac \"zeroSnappedPoints `ls -sl`\";")`;
 
     setParent $mainLayout;
 
@@ -140,26 +139,6 @@ global proc string[] snapDeformer(string $src[], string $dest[], float $tol) {
     }
     print ("// Result: created snapDeformer(s) for "+$targets+" from "+$sources+" (see script editor for details).\n");
     return $snaps;
-}
-
-global proc int zeroSnappedPoints(string $pts[]) {
-    $pts = `filterExpand -fp 1 -ex 1 -sm 28 -sm 31 -sm 36 -sm 46 $pts`;
-    string $meshes[] = `ls -r 1 -o $pts`;
-    $meshes = `snap_intersectStringArrays $meshes $meshes`;
-    string $hist[] = `getDeformersOfType $meshes[0] "snapMeshDeformer"`;
-    $history = `listHistory -gl 1 -pdo 1 $meshes`;
-    string $snaps[] = `ls -typ "snapMeshDeformer" $history`;
-    if (size($snaps)>0) {
-        for ($p=0;$p<size($pts);$p++) {
-            string $num = getComponentIndex($pts[$p]);
-            for ($s in $snaps) {
-                setAttr ($s+".pointList["+$num+"]") -1;
-            }
-        }
-        return 1;
-    } else {
-        return 0;
-    }
 }
 
 global proc string snap_stringArrayToString(string $array[]) {
