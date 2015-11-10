@@ -1,4 +1,6 @@
 '''
+daverichardnelson@gmail.com
+
 usage: place into your projects/data dir and use the following shelf cmd:
 import sys
 sys.path.append(workspace(q=1, dir=1).replace('/scenes/','scripts/'))
