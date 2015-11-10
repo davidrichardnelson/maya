@@ -1,6 +1,4 @@
 '''
-daverichardnelson@gmail.com
-
 usage: place into your projects/data dir and use the following shelf cmd:
 import sys
 sys.path.append(workspace(q=1, dir=1).replace('/scenes/','scripts/'))
@@ -23,7 +21,6 @@ softMod.softModCon()
     * once deformed, you can animate the pivot parent for a bug under rug kind of affect
 
 david@ventosum.com
-31 January 2014
 '''
 
 import maya.cmds
