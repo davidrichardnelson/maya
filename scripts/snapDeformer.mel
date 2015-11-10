@@ -1,6 +1,6 @@
 /*
 snapDeformer.mel
-dbehrens
+daverichardnelson@gmail.com
 
 Use this tool to create and connect surfaces using the snapDeformer.
 For snapping points to points of surfaces. Much like a wrap deformer, but
@@ -215,5 +215,3 @@ global proc int isShapeIntermediate(string $node) {
     }
     return $is;
 }
-
-// EOF
