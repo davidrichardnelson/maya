@@ -189,9 +189,10 @@ def folliclesFromSel(parent=True):
     s = maya.cmds.ls(sl=1, type='transform', l=True)
     nurbs = maya.cmds.ls(s, ap=True, dag=True, type='nurbsSurface')
 
-    # ensure single nurbs surface
-    if len(nurbs) != 1:
-        print('Only one nurbs surface in the stack of selected transforms supported.')
+    # if nurbs check for history intermediates
+    nurbs_parents = list(set(maya.cmds.listRelatives(nurbs, p=True, pa=True, f=True)))
+    if len(nurbs_parents) != 1:
+        print('Only one nurbs surface in the stack of selected transforms supported (more than one nurbs transform selected.')
         return
 
     # get the nurbs parent and remove it from transforms list
