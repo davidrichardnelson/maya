@@ -1,3 +1,31 @@
+"""
+usage: 
+
+# create tubes from curves
+from pprint import pprint
+import maya.cmds
+import chains
+reload(chains)
+r = chains.circles(mc.ls(sl=1)[0])
+pprint(r)
+
+1) Select curve to build tubes and ribbons from
+
+# create curve from nulls
+from pprint import pprint
+import maya.cmds
+import chains
+reload(chains)
+pos = chains.curveFromTransforms(maya.cmds.ls(sl=1))
+
+1) select transforms to build chains from
+
+returns <WIP>
+
+david@ventosum.com
+"""
+
+
 import maya.OpenMaya
 import maya.api.OpenMaya
 import maya.cmds
@@ -306,12 +334,16 @@ def circles(crv, loft=True, bind=True, sets=True):
 
         pols = maya.cmds.nurbsToPoly(loft_tube[0], n=crv+'_PXY', mnd=1, ch=True, f=3, pt=1, pc=200, chr=0.9, ft=0.01, mel=0.001, d=0.1, ut=1, un=3, vt=1, vn=3, uch=0, ucr=0, cht=0.2, es=0, ntr=0, mrt=0, uss=1)
 
-        skin = maya.cmds.skinCluster(bind, [pols[0],loft_tube[0],loft_ribbon[0]], tsb=True, mi=1, obeyMaxInfluences=True)[0]
+        skin = maya.cmds.skinCluster(bind, [loft_tube[0],loft_ribbon[0]], tsb=True, mi=1, obeyMaxInfluences=True)[0]
         r['skin'] = skin
+        
+        if sets:
+            bind_set = maya.cmds.sets(bind, n=crv+'_bind_set')
 
     if sets:
         lines_set = maya.cmds.sets(lines, n=crv+'_lines_set')
         circles_set = maya.cmds.sets(shapes, n=crv+'_circles_set')
+        
 
     return r
     
