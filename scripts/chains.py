@@ -180,17 +180,26 @@ def jointsAtParams(crv):
     for j in range(1, len(js)):
         js[j] = maya.cmds.parent(js[j], js[j-1])[0]
 
-
+    # get distance between joints
     js = maya.cmds.ls(js, dag=True, ap=True)
+    d_sum = 0.0
     for j in range(len(js)-1):
         d = distance(js[j], js[j+1])
-        maya.cmds.setAttr(js[j]+'.radius', (d * 0.5) )
+        d_sum += d
+
+        # extra alignment to prevent flips (occurs when cvs cross the plane of curve edit point on curve between two CVs which wer use for UP vector)
+        maya.cmds.joint(js[j], e=True, zso=True, oj="xyz")
+
+    # pass average radius, just cleaner for tube generation and ribbons
+    mean_d = d_sum / len(js)
+    for j in range(len(js)-1):
+        # TODO normalize from start to end the scales of the radius    
+        maya.cmds.setAttr(js[j]+'.radius', (mean_d * 0.4) )
 
     # zero out the end joint
     end = js[len(js)-1]
     maya.cmds.setAttr(end+'.jo', 0, 0, 0)
     endParent = maya.cmds.listRelatives(end, p=True)[0]
-    maya.cmds.setAttr( endParent+'.r', -90, 0, 0 ) # weird hack, not sure why circles are off on loft at end-1?
     maya.cmds.setAttr( end+'.radius', maya.cmds.getAttr( endParent +'.radius' ) )
 
     return js
@@ -220,7 +229,7 @@ def curve(null, curve='circle', radius=1.0, degree=3):
         if curve == 'circle':
             cir = maya.cmds.circle(c=(0,0,0), nr=(1,0,0), sw=360, r=radius, d=degree, ut=0, tol=0.01, s=6, ch=1)[0]
         elif curve == 'line':
-            radius = radius * 0.2 # smaller than circle
+            radius = radius * 1.0 # proportion to circle
             cir = maya.cmds.curve(d=1, p=[(0,0,radius), (0,0,(-1*radius))], k=(0,1) )
 
         cir = maya.cmds.parent(cir, null, r=1)
@@ -252,6 +261,44 @@ def jointFromJoint(j, radius=1.0, name=''):
         maya.cmds.select(s)
     
     return newj
+
+
+def zeroJointOrient(j):
+    """
+    Zero jointOrient
+    
+    TODO: use API for clean fast method    
+    """
+
+    if not maya.cmds.objExists(j):
+        return
+        
+    if maya.cmds.nodeType(j) != 'joint':
+        return
+
+    s = maya.cmds.ls(sl=True)
+
+    p = maya.cmds.listRelatives(j, p=1, pa=1, f=1)
+
+    tj = jointFromJoint(j)
+    tj = maya.cmds.parent(tj, w=True)[0]
+    
+    maya.cmds.delete( maya.cmds.pointConstraint( j, tj ) )
+    maya.cmds.delete( maya.cmds.orientConstraint( j, tj ) )
+
+    j = maya.cmds.parent(j, tj)[0]
+    maya.cmds.setAttr(j+'.t', 0, 0, 0)
+    maya.cmds.setAttr(j+'.r', 0, 0, 0)
+    maya.cmds.setAttr(j+'.jo', 0, 0, 0)
+    j = maya.cmds.parent(j, p)[0]
+    
+    maya.cmds.delete(tj)
+
+    if s:
+        maya.cmds.select(s)
+    
+    return j
+
 
 
 def curveFromTransforms(nulls):
@@ -306,6 +353,22 @@ def circles(crv, loft=True, bind=True, sets=True):
 
         lines.append(l['curve'])
 
+    # average the rotations on the joints for loft cleanliness
+    print circles
+    print lines
+    for i in range(1 , len(shapes)-1):
+        cj0 = maya.cmds.listRelatives( shapes[i-1], p=1 )[0]
+        cj1 = maya.cmds.listRelatives( shapes[i+1], p=1 )[0]
+        cj2 = maya.cmds.listRelatives( shapes[i], p=1 )[0]
+        maya.cmds.delete( maya.cmds.orientConstraint( cj0, cj1, cj2 ) )
+        zeroJointOrient(cj2)
+
+        lj0 = maya.cmds.listRelatives( lines[i-1], p=1 )[0]
+        lj1 = maya.cmds.listRelatives( lines[i+1], p=1 )[0]
+        lj2 = maya.cmds.listRelatives( lines[i], p=1 )[0]
+        maya.cmds.delete( maya.cmds.orientConstraint( lj0, lj1, lj2 ) )
+        zeroJointOrient(lj2)
+
     r = {
         'circles' :  cs,
         'shapes' : shapes,
@@ -322,7 +385,7 @@ def circles(crv, loft=True, bind=True, sets=True):
     if bind and loft:
         bind = []
         for j in range(len(js)):
-            n = jointFromJoint(js[j])
+            n = jointFromJoint(js[j], name='bind_'+js[j])
             if maya.cmds.listRelatives(n, p=True):
                 n = maya.cmds.parent(n, w=True)[0]
             bind.append(n)
@@ -347,5 +410,22 @@ def circles(crv, loft=True, bind=True, sets=True):
 
     return r
     
+    
+def alignCVs():
+    a = maya.cmds.ls(sl=1, fl=1)
+    if len(a) > 2:
+        start = a[0]
+        end = a[len(a)-1]
+        rest = list(set(a)-set([start,end]))
+    
+        cStart = maya.cmds.cluster(start)[1]
+        cEnd = maya.cmds.cluster(end)[1]
+        cRest = []
+        for i in range(len(rest)):
+            c = maya.cmds.cluster(rest[i])[1]
+            cRest.append(c)
+            maya.cmds.delete( maya.cmds.pointConstraint(cStart, cEnd, c))
+            
+        maya.cmds.delete( maya.cmds.ls(a, o=1), ch=True )
     
 # EOF
