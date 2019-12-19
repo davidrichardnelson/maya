@@ -116,7 +116,7 @@ def doIt(name, s=maya.cmds.ls(sl=1, r=1, o=1)):
     ret = {
         'control' : ctrl[0],
         'pivot' : piv[0],
-        'zero' : zero[0],
+        'zero' : zero,
         'softMod' : sm[0]
     }
     maya.cmds.select(ctrl)

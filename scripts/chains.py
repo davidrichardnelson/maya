@@ -399,6 +399,8 @@ def circles(crv, loft=True, bind=True, sets=True):
 
         skin = maya.cmds.skinCluster(bind, [loft_tube[0],loft_ribbon[0]], tsb=True, mi=1, obeyMaxInfluences=True)[0]
         r['skin'] = skin
+        r['influences'] = bind
+        r['proxy'] = pols
         
         if sets:
             bind_set = maya.cmds.sets(bind, n=crv+'_bind_set')
