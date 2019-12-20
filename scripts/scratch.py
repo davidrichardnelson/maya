@@ -12,9 +12,6 @@ reload(chains)
 reload(skinCluster)
 reload(softModCon)
 
-# define body mesh joint list to copy weights to primary target from for ribbons of head or other hair
-INF = ["L_bind_finger_thumb_04_JNT","R_bind_limb_arm_08_JNT","R_bind_limb_arm_01_JNT","R_bind_limb_arm_03_JNT","R_bind_limb_arm_mid_JNT","R_bind_limb_arm_09_JNT","R_bind_finger_index_02_JNT","R_bind_limb_arm_end_JNT","R_bind_limb_arm_upper_JNT","R_bind_limb_arm_05_JNT","R_bind_limb_arm_04_JNT","R_bind_limb_arm_07_JNT","R_bind_midHand_JNT","R_bind_fingerTips_JNT","R_bind_finger_index_01_JNT","R_bind_hand_JNT","R_bind_finger_middle_02_JNT","R_bind_finger_middle_01_JNT","R_bind_finger_index_04_JNT","R_bind_finger_index_03_JNT","R_bind_finger_index_05_JNT","R_bind_finger_middle_04_JNT","R_bind_finger_middle_05_JNT","R_bind_finger_ring_01_JNT","R_bind_finger_middle_03_JNT","L_bind_limb_arm_03_JNT","L_bind_limb_arm_01_JNT","L_bind_limb_arm_upper_JNT","L_bind_limb_arm_mid_JNT","L_bind_finger_index_04_JNT","L_bind_finger_middle_01_JNT","L_bind_limb_arm_09_JNT","L_bind_midHand_JNT","L_bind_limb_arm_08_JNT","L_bind_fingerTips_JNT","L_bind_limb_arm_07_JNT","L_bind_limb_arm_05_JNT","L_bind_limb_arm_end_JNT","L_bind_finger_index_02_JNT","L_bind_limb_arm_04_JNT","L_bind_finger_index_03_JNT","L_bind_finger_index_01_JNT","L_bind_hand_JNT","L_bind_finger_index_05_JNT","L_bind_finger_ring_01_JNT","L_bind_finger_middle_02_JNT","L_bind_finger_middle_03_JNT","L_bind_finger_ring_02_JNT","L_bind_finger_ring_05_JNT","L_bind_finger_thumb_01_JNT","L_bind_finger_middle_05_JNT","L_bind_finger_thumb_02_JNT","L_bind_finger_middle_04_JNT","L_bind_finger_ring_04_JNT","L_bind_finger_ring_03_JNT","L_bind_finger_thumb_03_JNT","R_bind_finger_thumb_02_JNT","R_bind_finger_thumb_03_JNT","R_bind_finger_thumb_01_JNT","R_bind_finger_thumb_04_JNT","bind_basic_tail_05_JNT","bind_basic_tail_07_JNT","L_bind_limb_leg_03_JNT","L_bind_limb_leg_upper_JNT","bind_basic_tail_02_JNT","bind_basic_tail_08_JNT","bind_basic_tail_01_JNT","bind_basic_tail_04_JNT","bind_basic_tail_03_JNT","bind_basic_tail_06_JNT","L_bind_limb_leg_01_JNT","L_bind_limb_leg_mid_JNT","L_bind_limb_leg_05_JNT","L_bind_toeTips_JNT","L_bind_limb_leg_04_JNT","L_bind_finger_indexToe_01_JNT","L_bind_finger_ringToe_03_JNT","L_bind_ankle_JNT","L_bind_finger_indexToe_02_JNT","L_bind_finger_indexToe_03_JNT","L_bind_limb_leg_08_JNT","L_bind_limb_leg_end_JNT","L_bind_limb_leg_09_JNT","L_bind_finger_middleToe_01_JNT","L_bind_finger_middleToe_03_JNT","L_bind_limb_leg_07_JNT","L_bind_ball_JNT","L_bind_finger_middleToe_02_JNT","L_bind_finger_ringToe_01_JNT","L_bind_finger_ringToe_02_JNT","R_bind_limb_leg_01_JNT","R_bind_ankle_JNT","R_bind_limb_leg_upper_JNT","R_bind_limb_leg_07_JNT","R_bind_toeTips_JNT","R_bind_limb_leg_03_JNT","R_bind_finger_indexToe_01_JNT","R_bind_limb_leg_05_JNT","R_bind_limb_leg_mid_JNT","R_bind_ball_JNT","R_bind_limb_leg_08_JNT","R_bind_limb_leg_end_JNT","R_bind_limb_leg_04_JNT","R_bind_limb_leg_09_JNT","R_bind_finger_middleToe_03_JNT","R_bind_finger_ringToe_01_JNT","R_bind_finger_ringToe_02_JNT","R_bind_finger_middleToe_02_JNT","R_bind_finger_indexToe_02_JNT","R_bind_finger_middleToe_01_JNT","R_bind_finger_indexToe_03_JNT","R_bind_finger_ringToe_03_JNT","R_bind_finger_ring_02_JNT","R_bind_finger_ring_04_JNT","R_bind_finger_ring_05_JNT","R_bind_finger_ring_03_JNT","bind_spine_05_JNT","bind_spine_04_JNT","bind_basic_root_01_JNT","bind_spine_02_JNT","bind_spine_03_JNT","bind_spine_01_JNT","bind_basic_head_03_JNT","bind_spine_07_JNT","bind_basic_neck_01_JNT","bind_basic_neck_02_JNT","bind_basic_head_01_JNT","bind_basic_neck_03_JNT","bind_spine_06_JNT","bind_basic_head_02_JNT"]
-
 """
 import scratch
 reload(scratch)
@@ -42,7 +39,85 @@ def build():
     return cs
 
 
+def jointAtRibbon(name, ribbonShape, u, v):
+
+    pos = maya.cmds.createNode('pointOnSurfaceInfo')
+    maya.cmds.connectAttr( ribbonShape+'.worldSpace[0]', pos+'.inputSurface' )
+    x = maya.cmds.createNode('transform')
+
+    maya.cmds.connectAttr( pos+'.position', x+'.t', f=1 )
+    maya.cmds.setAttr( pos+'.parameterU', u )
+    maya.cmds.setAttr( pos+'.parameterV', v )
+
+    tj = maya.cmds.createNode('joint', n=name+'_JNT')
+    maya.cmds.delete( maya.cmds.pointConstraint(x, tj) )
+    maya.cmds.delete( x, pos )
+
+    f = follicle.follicleFromNode(tj, ribbonShape, parent=True)
+    maya.cmds.setAttr(f['null'][0]+'.t', 0,0,0)
+    maya.cmds.setAttr(f['null'][0]+'.r', 0,0,0)
+    maya.cmds.setAttr(f['null'][0]+'.jo', 0,0,0)
+
+    j = maya.cmds.parent(f['null'], w=True)[0]
+    z1 = maya.cmds.createNode( 'transform', n=name+'_A_ZERO')
+    maya.cmds.delete( maya.cmds.pointConstraint( j, z1 ) )
+    maya.cmds.delete( maya.cmds.orientConstraint( j, z1 ) )
+    z2 = maya.cmds.duplicate( z1, n=name+'_B_ZERO', rr=True )[0]
+    z2 = maya.cmds.parent(z2, z1)
+    c = maya.cmds.duplicate( j, rr=True, n=name+'_CON')[0]
+    c = maya.cmds.parent(c, z2)[0]
+    j = maya.cmds.parent(j, c)[0]
+
+    shapeXf = maya.cmds.curve(n=c+'Shape', d=1, p=((-1,-1,1),(-1,-1,-1),(1,-1,-1),(1,-1,1),(-1,-1,1),(-1,1,1),(-1,1,-1),(-1,-1,-1),(-1,1,-1),(1,1,-1),(1,-1,-1),(1,1,-1),(1,1,1),(1,-1,1),(1,1,1),(-1,1,1)), k=(0,1,2,3,4,1,6,7,8,9,10,11,12,13,14,15) )
+    shapeXf = maya.cmds.parent(shapeXf, c, r=1)[0]
+    shape = maya.cmds.parent(maya.cmds.listRelatives(shapeXf, s=1, f=1, pa=1, type='nurbsCurve'), c, r=1, s=1)
+
+    maya.cmds.delete(shapeXf, f['transform'])
+    
+    return {'joint':j, 'control':c, 'zero':z1}
+
+
+def bindRibbonWithCons(ribbon):
+
+    joints = []
+    zeroes = []
+    cons = []
+    uvs = [[0.5,0.0], [0.5,0.1], [0.5,0.5], [0.5,0.9], [0.5,1.0]]
+
+    name = ribbon.split('_CRV')[0]
+
+    for i in range(len(uvs)):
+        r = jointAtRibbon(name+'_'+str(i), ribbon, uvs[i][0], uvs[i][1])
+        joints.append(r['joint'])
+        zeroes.append(r['zero'])
+        cons.append(r['control'])
+
+    maya.cmds.delete( ribbon, ch=True )
+    skin = maya.cmds.skinCluster( joints, ribbon, tsb=True, mi=2, obeyMaxInfluences=True)[0]
+
+    # quick hacks to parent ends to end minus 1 on each end of surface/curve
+    zeroes[0] = maya.cmds.parent(zeroes[0], cons[1])[0]
+    zeroes[4] = maya.cmds.parent(zeroes[4], cons[3])[0]
+
+    # clean ribbon so each line has same weighted verts after copy weights
+    cleanRibbonWeights(ribbon)
+    
+    # parent to RIG joints
+    head = 'basic_head_01_FOLLOW'
+    neckB = 'basic_neck_02_FOLLOW'
+    neckA = 'basic_neck_01_FOLLOW'
+        
+    zeroes[1] = maya.cmds.parent(zeroes[1], head)[0]
+    zeroes[2] = maya.cmds.parent(zeroes[2], neckB)[0]
+    zeroes[3] = maya.cmds.parent(zeroes[3], neckA)[0]
+    
+    return {'influences':joints, 'zero':zeroes, 'controls':cons, 'skin':skin}
+
+
 def attach(cs, inf=INF):
+    """
+    After manually checking twists on ribbons for any anomolies (twisting) then run this.
+    """
 
     pxy = []
     fols = []
@@ -57,9 +132,8 @@ def attach(cs, inf=INF):
         maya.cmds.select(c['influences'], c['ribbon'][0])
         f = follicle.folliclesFromSel()
 
-        # bind ribbon by influence body list and copy weights
-        skin = maya.cmds.skinCluster(inf, [c['ribbon'][0]], tsb=True, mi=1, obeyMaxInfluences=True)[0]
-        maya.cmds.copySkinWeights(ss="body_skinCluster", ds=skin, noMirror=True, surfaceAssociation='closestPoint', influenceAssociation="closestJoint")
+        # build ribbon IK cons
+        bindRibbonWithCons(c['ribbon'][0])
 
         # delete proxy history to pass weights to it.
         maya.cmds.delete([c['proxy'][0]], ch=True)
@@ -78,21 +152,9 @@ def attach(cs, inf=INF):
         mesh = maya.cmds.ls( c['curve'].replace('_CRV','_REN') )
         skinCluster.copy_skin(c['proxy'][0], mesh[0])
 
-        maya.cmds.setAttr(c['proxy'][0]+'.v', 0)
-        #maya.cmds.setAttr(c['ribbon'][0]+'.v', 0)
-
-        # generate a softMod deformer at the end of the curve; hard coded to last knot for now, whatevs, deadlines brah.
-        sm = softModCon.doIt(c['curve'].replace('_CRV',''), s=c['ribbon'][0])
-        cls = maya.cmds.cluster(c['curve']+'.cv[7]')
-        maya.cmds.delete( maya.cmds.pointConstraint(cls[1], sm['zero']))
-        maya.cmds.delete(cls)
-        maya.cmds.setAttr(sm['control']+'.falloffRadius', 20)
-
         # get rid of pxy
         maya.cmds.delete(c['proxy'][0])
         
-        # clean ribbon so each line has same weighted verts after copy weights
-        cleanRibbonWeights(c['ribbon'][0])
 
 
 def cleanRibbonWeights(ribbon):
