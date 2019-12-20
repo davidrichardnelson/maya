@@ -382,6 +382,10 @@ def circles(crv, loft=True, bind=True, sets=True):
         r['tube'] = loft_tube
         r['ribbon'] = loft_ribbon
 
+        # ensure uniform in both U and V
+        rebuild = maya.cmds.rebuildSurface([r['tube'], r['ribbon']], ch=True, rpo=True, rt=0, end=1, kr=0, kcp=0, kc=0, su=0, du=3, sv=0, dv=3, tol=0.01, fr=0, dir=2)
+
+
     if bind and loft:
         bind = []
         for j in range(len(js)):
@@ -396,6 +400,7 @@ def circles(crv, loft=True, bind=True, sets=True):
             bind[j] = maya.cmds.parent( bind[j], bind[j+1])[0]
 
         pols = maya.cmds.nurbsToPoly(loft_tube[0], n=crv+'_PXY', mnd=1, ch=True, f=3, pt=1, pc=200, chr=0.9, ft=0.01, mel=0.001, d=0.1, ut=1, un=3, vt=1, vn=3, uch=0, ucr=0, cht=0.2, es=0, ntr=0, mrt=0, uss=1)
+        
 
         skin = maya.cmds.skinCluster(bind, [loft_tube[0],loft_ribbon[0]], tsb=True, mi=1, obeyMaxInfluences=True)[0]
         r['skin'] = skin
