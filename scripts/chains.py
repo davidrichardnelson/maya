@@ -383,7 +383,7 @@ def circles(crv, loft=True, bind=True, sets=True):
         r['ribbon'] = loft_ribbon
 
         # ensure uniform in both U and V
-        rebuild = maya.cmds.rebuildSurface([r['tube'], r['ribbon']], ch=True, rpo=True, rt=0, end=1, kr=0, kcp=0, kc=0, su=0, du=3, sv=0, dv=3, tol=0.01, fr=0, dir=2)
+        rebuild = maya.cmds.rebuildSurface([r['tube'][0], r['ribbon'][0]], ch=True, rpo=True, rt=0, end=1, kr=0, kcp=0, kc=0, su=0, du=3, sv=0, dv=3, tol=0.01, fr=0, dir=2)
 
 
     if bind and loft:
