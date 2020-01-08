@@ -75,8 +75,7 @@ def doIt(name, s=maya.cmds.ls(sl=1, r=1, o=1)):
     maya.cmds.parent(maya.cmds.listRelatives([c2,c3], s=1, ni=1), ctrl, r=1, s=1)
     maya.cmds.delete(c2,c3)
 
-    piv = maya.cmds.curve(n=name+'_PIV', d=1, p=((-1,-1,1),(-1,-1,-1),(1,-1,-1),(1,-1,1),(-1,-1,1),(-1,1,1),(-1,1,-1),(-1,-1,-1),(-1,1,-1),(1,1,-1),(1,-1,-1),(1,1,-1),(1,1,1),(1,-1,1),(1,1,1),(-1,1,1)), k=(0,1,2,3,4,1,6,7,8,9,10,11,12,13,14,15) )
-    maya.cmds.setAttr(piv+'.s', type = 'double3', *(size,size,size))
+    piv = maya.cmds.circle(n=name+'_PIV', r=(size*1.1), ch=0, nrx=0, nry=1, nrz=0)[0]
 
     maya.cmds.delete(maya.cmds.pointConstraint(sm[1], ctrl))
     maya.cmds.delete(maya.cmds.pointConstraint(sm[1], piv))
