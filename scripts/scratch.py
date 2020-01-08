@@ -32,6 +32,69 @@ for n in mc.ls(sl=1, o=1):
         pts = n+'.cv[0:3][0:6]'
         print j1, j2, pts
         mc.skinPercent(sn, pts, tv=[(j1, 0.0), (j2, 0.0)])
+        
+import maya.cmds as mc
+for n in mc.ls(sl=1):
+    for i in range(0,44):
+        c = mc.cluster(n+'.cv[5]['+str(i)+']',n+'.cv[4]['+str(i)+']',n+'.cv[3]['+str(i)+']',n+'.cv[2]['+str(i)+']',n+'.cv[1]['+str(i)+']',n+'.cv[0]['+str(i)+']',n+'.cv[6:7]['+str(i)+']')
+        j = mc.createNode('joint', n='bind'+n+'_'+str(i).zfill(2)+'_JNT')
+        mc.delete(mc.pointConstraint(c[1],j))
+        mc.delete(c)
+
+for n in mc.ls(sl=1):
+    for i in range(0,15):
+        #c = mc.cluster(n+'.cv[5]['+str(i)+']',n+'.cv[4]['+str(i)+']',n+'.cv[3]['+str(i)+']',n+'.cv[2]['+str(i)+']',n+'.cv[1]['+str(i)+']',n+'.cv[0]['+str(i)+']',n+'.cv[6:7]['+str(i)+']')
+        c = mc.cluster(n+'.cv['+str(i)+'][0:1]')
+        j = mc.createNode('joint', n='bind_'+n+'_'+str(i).zfill(2)+'_JNT')
+        mc.delete(mc.pointConstraint(c[1],j))
+        mc.delete(c)
+
+# CREATE fol AT CLOSEST uv TO u AT 0.5 v THEN PARENT JOINT
+
+import scratch
+reload(scratch)
+scratch.ribbonCloth()
+
+for n in mc.ls(sl=1):
+    mc.rename(n, mc.listRelatives(n, p=1)[0]+'Shape')
+    
+import maya.cmds as mc
+for n in mc.ls(sl=1):
+    a = mc.createNode('transform', n=n+'_A_GRP')
+    b = mc.createNode('transform', n=n+'_B_GRP')
+    b = mc.parent(b,a)[0]
+    mc.delete(mc.parentConstraint(n,a))
+    p = mc.listRelatives(n, p=1)
+    if p:
+        a = mc.parent(a,p)[0]
+    mc.parent(n,b)
+    
+
+
+import maya.cmds as mc
+for n in mc.ls(sl=1):
+    mc.rename(n, n.split('|')[-1].replace('upper','lower').replace('Upper','Lower'))
+
+import maya.cmds as mc
+for n in mc.ls(sl=1):
+    mc.rename(n, mc.listRelatives(n, p=1)[0]+'Shape')
+    
+import maya.cmds as mc
+for n in mc.ls(sl=1):
+    j = mc.createNode('joint', n='bind_'+n.replace('CON','JNT'))
+    j = mc.parent(j, n, r=1)
+
+
+mc.select(mc.ls(sl=1, ap=1, dag=1, type='joint'))
+bind = []
+s = mc.ls(sl=1)
+for n in s:
+    if 'bind' in n:
+        bind.append(n)    
+        print n
+if bind:
+    mc.select(n)
+    
 
 
 # wait for it, memory fails if not run line at a time, FML, moving on....
