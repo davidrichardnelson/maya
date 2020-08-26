@@ -1,5 +1,5 @@
 """
-usage: 
+usage:
 
 import follicle
 import maya.cmds
@@ -17,11 +17,11 @@ returns a list of dictionaries for each null attached
             'nurbs'     : nurbs surface node
             'follicle'  : follicle shape node
             'transform' : follicle transform node
-            'uv'        : uv data 
+            'uv'        : uv data
                             {
                                 'u'  : u               # U parameter
                                 'v'  : v               # V parameter
-                                'n'  : (n.x, n.y, n.z) # normal 
+                                'n'  : (n.x, n.y, n.z) # normal
                                 'nu' : nu              # uniform U value (0-1)
                                 'nv' : nv              # uniform V value (0-1)
                             }
@@ -58,17 +58,17 @@ def getClostestUV(null, nurbs):
     uv = maya.OpenMaya.MScriptUtil()
     pv = uv.createFromDouble(0.0)
     pv = uv.asDoublePtr()
-    
+
     # get dag path to nurbs surface
     sl = maya.OpenMaya.MSelectionList()
     sl.add(nurbs)
 
     dp = maya.OpenMaya.MDagPath()
     sl.getDagPath(0, dp)
-    
+
     fn = maya.OpenMaya.MFnNurbsSurface(dp)
-    
-    # get the closest point on surface to provided point    
+
+    # get the closest point on surface to provided point
     mm = maya.cmds.xform( null, q=True, matrix=True, ws=True )
     p = maya.OpenMaya.MPoint(mm[12], mm[13], mm[14])
     cpos = fn.closestPoint(p)
@@ -83,12 +83,12 @@ def getClostestUV(null, nurbs):
 
     # normalize U V to 0-1 for uniform values for nFollicles
     mxu = maya.cmds.getAttr(nurbs+'.mxu')
-    mxv = maya.cmds.getAttr(nurbs+'.mxv')    
+    mxv = maya.cmds.getAttr(nurbs+'.mxv')
     nu = u
     nv = v
     if u > 0:
         nu = u/mxu
-        
+
     if v > 0:
         nv = v/mxv
 
@@ -104,7 +104,7 @@ def getWorldTransform (obj):
 
 def createFollicle(nurbs, u=0.0, v=0.0):
     """
-    Create a follicle for a nurbs surface given U and V. Duplicates can exist. 
+    Create a follicle for a nurbs surface given U and V. Duplicates can exist.
     """
 
     # check validity of args
@@ -123,15 +123,15 @@ def createFollicle(nurbs, u=0.0, v=0.0):
         num = str(len(fols))
     else:
         num = str(0)
-    
+
     # create the follicle
     fol = maya.cmds.createNode('follicle', name=name+'_'+num.zfill(2)+'_follicle')
     maya.cmds.setAttr(fol+'.simulationMethod', 0) # static
 
     # name follicle xf
     xf = maya.cmds.listRelatives(fol, p=True)[0]
-    xf = maya.cmds.rename( xf, name+'_'+num.zfill(2)+'_FOL')
-        
+    xf = maya.cmds.rename( xf, name+'_'+num.zfill(2)+'_f')
+
     # hook up the nurbs and follicle
     maya.cmds.connectAttr( nurbs+'.local', fol+'.inputSurface', f=True)
     maya.cmds.connectAttr( nurbs+'.worldMatrix[0]', fol+'.inputWorldMatrix', f=True)
@@ -145,7 +145,7 @@ def createFollicle(nurbs, u=0.0, v=0.0):
     # return our follicle and its parent xf
     return {'follicle':fol, 'transform':xf}
 
-    
+
 def follicleFromNode(null, nurbs, parent=True):
     """
     Create an attachment of follicle for a null to a nurbs patch.
@@ -168,7 +168,7 @@ def follicleFromNode(null, nurbs, parent=True):
     if parent:
         null = maya.cmds.parent(null, fols['transform'])
         maya.cmds.reorder(null, f=True)
-    
+
     return {
         'null': null,
         'nurbs':nurbs,
@@ -180,11 +180,11 @@ def follicleFromNode(null, nurbs, parent=True):
 
 def folliclesFromSel(parent=True):
     """
-    Create attachment follicles per selected transforms to selected nurbs. 
+    Create attachment follicles per selected transforms to selected nurbs.
     - Only works on one patch at a time.
     - Parents transforms by default.
     """
-    
+
     # check for transforms and a nurbs surface
     s = maya.cmds.ls(sl=1, type='transform', l=True)
     nurbs = maya.cmds.ls(s, ap=True, dag=True, type='nurbsSurface')
